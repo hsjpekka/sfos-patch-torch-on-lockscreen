@@ -1,0 +1,95 @@
+--- /usr/share/lipstick-jolla-home-qt5/lockscreen/LockItem.qml
++++ /usr/share/lipstick-jolla-home-qt5/lockscreen/LockItem.qml
+@@ -60,6 +60,8 @@
+     onVisibleChanged: {
+         if (!visible) {
+             mce.endBlankDelay()
++        } else {
++            profile.getProfile()
+         }
+     }
+ 
+@@ -74,10 +76,25 @@
+ 
+         property var menuAction
+ 
+-        enabled: shortcutRepeater.count && !lipstickSettings.lowPowerMode && Lipstick.compositor.systemInitComplete && lockScreen.locked
++        enabled: Lipstick.compositor.systemInitComplete && lockScreen.locked
+         opacity: enabled ? 1 : 0
+         Behavior on opacity { FadeAnimation {} }
+ 
++        MenuItem {
++            text: "torch"
++            onClicked: {
++                torch.toggle()
++                menuAction = undefined
++            }
++        }
++        MenuItem {
++            text: profile.isMute? "unmute" : "mute"
++            onClicked: {
++                profile.toggle()
++                menuAction = undefined
++            }
++        }
++
+         Repeater {
+             id: shortcutRepeater
+ 
+@@ -108,6 +125,56 @@
+         }
+     }
+ 
++    DBusInterface {
++        id: torch
++
++        bus: DBus.SessionBus
++        service: "com.jolla.settings.system.flashlight"
++        path: "/com/jolla/settings/system/flashlight"
++        iface: "com.jolla.settings.system.flashlight"
++
++        function toggle() {
++            torch.call("toggleFlashlight");
++            return;
++        }
++    }
++
++    DBusInterface {
++        id: profile
++
++        bus: DBus.SessionBus
++        service: "com.nokia.profiled"
++        path: "/com/nokia/profiled"
++        iface: "com.nokia.profiled"
++
++        property bool isMute: false
++        property string previous: "general"
++
++        function getProfile() {
++            profile.typedCall('get_profile', [], function (result) {
++                if (result === "silent") {
++                    isMute = true;
++                } else {
++                    isMute = false;
++                    previous = result;
++                }
++            });
++            return;
++        }
++
++        function toggle() {
++            if (isMute) {
++                if (previous === undefined || previous === "silent" || previous === "")
++                    previous = "general";
++                profile.call('set_profile', [previous]);
++            } else {
++                profile.call('set_profile', ['silent']);
++            }
++            isMute = !isMute;
++            return;
++        }
++    }
++
+     MouseArea {
+         objectName: "LockItem_hintEdges"
+         anchors.fill: parent
